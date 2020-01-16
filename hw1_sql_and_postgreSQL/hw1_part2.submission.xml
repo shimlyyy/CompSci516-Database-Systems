@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<homework>
+<item>
+	<id>q4a</id>
+	<question>
+		Plot a linegraph with two lines, one for the number of journal papers and the other for the number of conference paper in every decade starting from 1950. Therefore the decades will be 1950-1959, 1960-1969, ...., 2000-2009, 2010-.
+	</question>
+	<sql><![CDATA[
+        with
+        cnt1 as
+        (
+        select A.year /10 *10 as decade, count(*)
+        from article A
+        where A.year >= 1950 and A.year <=2019
+        group by (A.year / 10)
+        ),
+        cnt2 as
+        (
+        select I.year / 10 * 10 as decade, count(*)
+        from inproceedings I
+        where I.year >= 1950
+        group by (I.year / 10)
+        )
+        select cnt1.decade, cnt1.count as num_journals, cnt2.count as num_confs
+        from cnt1 left outer join cnt2
+        on cnt1.decade = cnt2.decade
+
+	]]></sql>
+	<result>
+        
+	</result>
+</item>
+<item>
+	<id>q4b</id>
+	<question>
+	/* Q4b.
+	 * Plot a barchart showing how the average number of collaborators varied in
+	 * these decades for conference papers in each of the four areas in Q3.
+	 * Again, the decades will be 1950-1959, 1960-1969, ...., 2000-2009, 2010-.
+	 * But for every decade, there will be four bars one for each area (do not
+	 * consider UNKNOWN), the height of the bars will denote the average number of
+	 * collaborators. */
+	</question>
+	<sql><![CDATA[
+        with
+        target as
+        (
+        select A.author, (I.year/10)*10 as decade, I.area
+        from inproceedings I, authorship A
+        where I.pubkey = A.pubkey and I.year >=1950 and I.area != 'UNKNOWN'
+        group by A.author, (I.year/10)*10, I.area
+        
+        ),
+        combine1 as --inproceedings author with collab
+        (
+        select A1.author, A2.author as collab, (I.year/10)*10 as decade ---, I.area
+        from authorship A1, authorship A2, inproceedings I
+        where (A1.author != A2.author and A1.pubkey = A2.pubkey)
+        and (A1.pubkey = I.pubkey and I.year >= 1950)
+        group by A1.author, A2.author, (I.year/10)*10   ---, I.area
+        ),
+        combine2 as --article author with collab
+        (
+        select A1.author, A2.author as collab, (Ar.year/10)*10 as decade
+        from authorship A1, authorship A2, article Ar
+        where (A1.author != A2.author and A1.pubkey = A2.pubkey)
+        and (A1.pubkey = Ar.pubkey and Ar.year >= 1950 and Ar.year <= 2019)
+        group by A1.author, A2.author, (Ar.year/10)*10
+        ),
+        comb as
+        (
+        select *
+        from combine1
+        union
+        select *
+        from combine2
+        group by author, collab, decade
+        ),
+        
+        pro2 as
+        (
+        select target.author, target.decade, target.area, comb.collab
+        from target, comb
+        where target.author = comb.author and target.decade = comb.decade
+        
+        ),
+        cnt as
+        (
+        select author, decade, area, count(distinct collab)
+        from pro2
+        group by author, decade, area
+        )
+        select decade, area, avg(count) as avgcollab
+        from cnt
+        group by decade, area;
+
+        
+	]]></sql>
+	<result>
+        ???
+	</result>
+</item>
+<item>
+	<id>q4c</id>
+	<question>
+	 /*
+	  * q4c. calculate the trend of average number of coauthors in each area
+	  */
+	</question>
+	<sql><![CDATA[
+        with
+        cnt1 as
+        (
+        select I.pubkey, (I.year/10)*10 as decade, I.area, count(distinct A.author)
+        from authorship A, inproceedings I
+        where A.pubkey = I.pubkey and area != 'UNKNOWN' and I.year >= 1950
+        group by I.pubkey, (I.year/10)*10, I.area
+        ),
+        avg1 as
+        (
+        select cnt1.area, cnt1.decade, avg(count) as avgc
+        from cnt1
+        group by cnt1.area, cnt1.decade
+        )
+        select area,(count(*)*sum(decade*avgc)-sum(decade)*sum(avgc))/(count(*)*sum(decade^2)-sum(decade)^2) as slope
+        from avg1
+        group by area;
+	]]></sql>
+	<result>
+        ???
+	</result>
+</item>
+</homework>
